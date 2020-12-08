@@ -1,0 +1,30 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+read and summarize by day and HPU
+
+
+```{r}
+chem <- read_csv("W3_Chemistry_all2020.csv")
+HPUkey <- read_csv("HPU LocationType.csv")
+
+#detection limit for NO3 is 0.04
+
+startdate <- mdy("01-01-2010") #ignore chem before this date
+
+chem_summary_NO3 <- chem %>% 
+  group_by(LocationType, SampleDate) %>%
+  filter(NO3_mgL >= 0.04 & SampleDate > startdate) %>%
+  summarize(NO3median_mgL = median(NO3_mgL),num_samples = length(NO3_mgL))%>%
+  left_join(HPUkey, by = "LocationType")
+
+
+```
+
+

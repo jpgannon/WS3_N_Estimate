@@ -1,0 +1,41 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+## requires output from median NO3 and Make daily water levels RMDs
+
+## Make daily median water level PER HPU
+```{r}
+dailyHPUlevel <- dailyWLsHPUs %>%
+  group_by(HPU, date) %>%
+  drop_na() %>%
+  summarise(median_ht_above_C_cm = median(WLaboveC_cm), 
+            sdWLs = sd(WLaboveC_cm), 
+            wells_included = length(WLaboveC_cm)) 
+```
+### check w plot
+```{r}
+dailyHPUlevel %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","Bimodal", "Riparian")) %>%
+  ggplot(aes(date, median_ht_above_C_cm, color = HPU)) +
+  geom_line()
+```
+## match median water levels to NO3 data
+
+```{r}
+NO3_and_WL <- chem_summary_NO3 %>%
+  left_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+
+```
+```{r}
+NO3_and_WL %>%
+  ggplot(aes(HPU, NO3median_mgL * median_ht_above_C_cm))+
+  geom_boxplot()
+```
+
+

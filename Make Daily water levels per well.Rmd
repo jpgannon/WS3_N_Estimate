@@ -1,0 +1,49 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+### Read all well data from combined file
+
+```{r}
+alldata <- read_csv("cleanAllWellData.csv")
+```
+
+### Make dataset of median daily values per well
+
+```{r}
+
+dailyWLs <- alldata %>%
+  group_by(Well, year = year(date),month = month(date),day = day(date)) %>%
+  summarize(medianWL = median(level), sdWL = sd(level), countWL = length(level)) %>%
+  drop_na() %>%
+  mutate(date = mdy(paste(month, day, year, sep = "-"))) %>%
+  filter(countWL > 100) %>%
+  ungroup() %>%
+  select(date, Well, medianWL, sdWL)
+```
+
+### Add HPU identifier to each record 
+
+## convert water depth below surface to water depth above C
+
+```{r}
+info <- read_csv("Well_info.csv") %>%
+  mutate(Well = Well_ID)
+info_legacy <- read_csv("legacy_well_info.csv") %>%
+  rename(Screen_bottom_depth_cm = `ground - bottom screen cm`)
+
+info2 <- bind_rows(info, info_legacy) %>%
+  select(Well, HPU, Screen_bottom_depth_cm)
+
+dailyWLsHPUs <- dailyWLs %>% 
+  left_join(info2, by = c("Well")) %>%
+  mutate(WLaboveC_cm = Screen_bottom_depth_cm - medianWL)
+  
+  
+```
