@@ -1,0 +1,62 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+
+```{r}
+NO3HPU <- read_csv("NO3_and_medianWLs.csv")
+HPUareas <- read_csv("HPUareas.csv")
+
+NO3HPU_areas <- NO3HPU %>% left_join(HPUareas, by = "HPU")
+
+Porosity <- 0.5
+
+TotalArea_ha <- sum(HPUareas$Area_ha)
+```
+
+```{r}
+#mg/L 
+#cm
+#ha
+
+#Volume of water for water level
+# (Area * depth) * porosity
+NO3HPU_areas <- NO3HPU_areas %>% mutate(water_L = 
+                                          (((Area_ha * 10000) *   #ha -> m2
+                                          (median_ht_above_C_cm / 100)) #cm -> m
+                                          * Porosity) 
+                                          * 1000)
+
+NO3HPU_areas <- NO3HPU_areas %>% 
+                mutate(NO3_mg = NO3median_mgL * water_L) %>%
+                mutate(NO3_kg = NO3_mg / 1000000)
+
+
+```
+
+```{r}
+NO3HPU_areas %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal")) %>%
+  #mutate(dayofYear = yday(SampleDate)) %>%
+  ggplot(aes(SampleDate, NO3_kg, color = HPU))+
+  geom_point()+
+  facet_grid(rows = "HPU")
+
+WSvalue <- NO3HPU_areas %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal")) %>%
+  group_by(SampleDate) %>%
+  summarize(kgha_NO3_WS = sum(NO3_kg)/TotalArea_ha) 
+
+medianval <- median(WSvalue$kgha_NO3_WS)
+
+WSvalue %>%
+  ggplot(aes(SampleDate, kgha_NO3_WS))+
+  geom_line()+
+  ggtitle(paste("median value:", medianval))
+
+```
+

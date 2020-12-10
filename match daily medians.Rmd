@@ -21,21 +21,39 @@ dailyHPUlevel <- dailyWLsHPUs %>%
 ```
 ### check w plot
 ```{r}
-dailyHPUlevel %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","Bimodal", "Riparian")) %>%
-  ggplot(aes(date, median_ht_above_C_cm, color = HPU)) +
-  geom_line()
+dailyHPUlevel %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian")) %>%
+  ggplot(aes(date, median_ht_above_C_cm, color = as.factor(wells_included))) +
+  geom_line()+
+  facet_grid(rows = "HPU")
 ```
 ## match median water levels to NO3 data
 
 ```{r}
-NO3_and_WL <- chem_summary_NO3 %>%
-  left_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+NO3_and_WL_LJ <- chem_summary_NO3 %>%
+  inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+  write_csv(NO3_and_WL_FJ, "NO3_and_WL_LeftJoin.csv")
 
+NO3_and_WL <- chem_summary_NO3 %>%
+  inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+  write_csv(NO3_and_WL, "NO3_and_medianWLs.csv")
 ```
 ```{r}
-NO3_and_WL %>%
+NO3_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian")) %>%
   ggplot(aes(HPU, NO3median_mgL * median_ht_above_C_cm))+
-  geom_boxplot()
+  geom_boxplot()+
+  theme_classic()
 ```
-
+```{r}
+NO3_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian")) %>%
+  ggplot(aes(SampleDate, NO3median_mgL * median_ht_above_C_cm, color = HPU))+
+  geom_point()+
+  facet_grid(rows = "HPU")
+```
+```{r}
+NO3_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian")) %>%
+  mutate(dayofYear = yday(SampleDate)) %>%
+  ggplot(aes(dayofYear, NO3median_mgL * median_ht_above_C_cm, color = HPU))+
+  geom_point()+
+  facet_grid(rows = "HPU")
+```
 
