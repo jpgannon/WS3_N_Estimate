@@ -6,18 +6,46 @@ output: html_notebook
 ```{r}
 library(tidyverse)
 library(lubridate)
+library(patchwork)
+library(gridExtra)
+```
+```{r}
+ChemWLs <- read_csv("allchem_with_medianWLs.csv")
+HPUareas <- read_csv("HPUareas.csv")
+
+ChemWL_areas <- ChemWLs %>% left_join(HPUareas, by = "HPU")
+
+#filter out Deep C NO3 values from 11-07-2013
+ChemWL_areas <- ChemWL_areas %>% filter(!(HPU == "deep C" & Date == mdy("11-07-2013") & name == "NO3 mg/L"))
+
+Porosity <- 0.5
+
+TotalArea_ha <- sum(HPUareas$Area_ha[HPUareas$HPU != "deep C"])
+
 ```
 
 
 ```{r}
-NO3HPU <- read_csv("NO3_and_medianWLs.csv")
-HPUareas <- read_csv("HPUareas.csv")
+# NO3HPU <- read_csv("NO3_and_medianWLs.csv")
+# HPUareas <- read_csv("HPUareas.csv")
+# 
+# NO3HPU_areas <- NO3HPU %>% left_join(HPUareas, by = "HPU")
+# 
+# Porosity <- 0.5
+# 
+# TotalArea_ha <- sum(HPUareas$Area_ha)
 
-NO3HPU_areas <- NO3HPU %>% left_join(HPUareas, by = "HPU")
+#Volume of water for water level
+# (Area * depth) * porosity
+concentrations_areas <- ChemWL_areas %>% mutate(water_L = #calculate water volume in Liters
+                                          (((median_ht_above_C_cm / 100) #Water table thickness in cm -> m
+                                          * 10000)    # 1 ha in m2
+                                          * Porosity) #multiply by porosity (set as 0.50) now m
+                                          * 1000) #this yields m^3, convert to L by * 1000
 
-Porosity <- 0.5
-
-TotalArea_ha <- sum(HPUareas$Area_ha)
+concentrations_areas <- concentrations_areas %>% 
+                mutate(conc_mgha = median_concentration * water_L) %>% #mg of NO3 as concentration(mg/L) * Liters of water
+                mutate(conc_kgha = conc_mgha / 1000000) #convert mg to kg
 ```
 
 ```{r}
@@ -27,36 +55,90 @@ TotalArea_ha <- sum(HPUareas$Area_ha)
 
 #Volume of water for water level
 # (Area * depth) * porosity
-NO3HPU_areas <- NO3HPU_areas %>% mutate(water_L = 
-                                          (((Area_ha * 10000) *   #ha -> m2
-                                          (median_ht_above_C_cm / 100)) #cm -> m
-                                          * Porosity) 
-                                          * 1000)
-
-NO3HPU_areas <- NO3HPU_areas %>% 
-                mutate(NO3_mg = NO3median_mgL * water_L) %>%
-                mutate(NO3_kg = NO3_mg / 1000000)
+# NO3HPU_areas <- NO3HPU_areas %>% mutate(water_L = #calculate water volume in Liters
+#                                           (((median_ht_above_C_cm / 100) #Water table thickness in cm -> m
+#                                           * 10000)    # 1 ha in m2
+#                                           * Porosity) #multiply by porosity (set as 0.50) now m
+#                                           * 1000) #this yields m^3, convert to L by * 1000
+# 
+# NO3HPU_areas <- NO3HPU_areas %>% 
+#                 mutate(NO3_mgha = NO3median_mgL * water_L) %>% #mg of NO3 as concentration(mg/L) * Liters of water
+#                 mutate(NO3_kgha = NO3_mgha / 1000000) #convert mg to kg
 
 
 ```
-
+Whole watershed value
+ 
 ```{r}
-NO3HPU_areas %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal")) %>%
-  #mutate(dayofYear = yday(SampleDate)) %>%
-  ggplot(aes(SampleDate, NO3_kg, color = HPU))+
+
+#finds whole watershed value on specific days where all HPUs have values
+
+concentrations_areas_WS <- concentrations_areas %>%
+  filter(HPU != "riparian") %>%
+  group_by(name, Date) %>%
+  summarize(conc_kgha = sum((conc_kgha*(Area_ha / TotalArea_ha)), na.rm = TRUE), numg = n())  %>%
+  filter(numg == 6) %>%
+  mutate(HPU = "Watershed")
+
+concentrations_areas <- concentrations_areas %>% bind_rows(concentrations_areas_WS)
+
+#find WS value based on median value for each HPU
+medians_by_HPUs <- concentrations_areas %>% 
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "deep C")) %>%
+  group_by(name, HPU) %>%
+  summarize(median_conc_kgha = median(conc_kgha, na.rm = TRUE), Area_ha = mean(Area_ha))
+  
+WS_wtd_mean_solum_C <- medians_by_HPUs %>%
+  group_by(name) %>%
+  summarize(mean_conc_kgha = sum((median_conc_kgha*(Area_ha / TotalArea_ha)), na.rm = TRUE), numg = n())
+
+WS_wtd_mean_solum <- medians_by_HPUs %>%
+  filter(HPU != "deep C") %>%
+  group_by(name) %>%
+  summarize(mean_conc_kgha = sum((median_conc_kgha*(Area_ha / TotalArea_ha)), na.rm = TRUE), numg = n())
+
+
+solum_and_C_table <- WS_wtd_mean_solum_C %>%
+  filter(name %in% c("NH4 mg N/L", "NO3 mg/L", "TDN mg/L")) 
+
+solum_table <- WS_wtd_mean_solum %>%
+  filter(name %in% c("NH4 mg N/L", "NO3 mg/L", "TDN mg/L")) 
+
+solum_and_C_table
+solum_table
+
+```
+ [1] "Al mg/L"    "Al-MP"      "Alm mg/L"   "Alo mg/L"   "Ba-MP"      "Ca mg/L"    "Ca-MP"      "Cl mg/L"    "DOC mg/L"  
+[10] "F mg/L"     "Fe mg/L"    "Fe-MP"      "K mg/L"     "K-MP"       "Mg mg/L"    "Mg-MP"      "Mn mg/L"    "Mn-MP"     
+[19] "Na mg/L"    "Na-MP"      "NH4 mg N/L" "NO3 mg/L"   "P-MP"       "Pb-MP"      "Rb-MP"      "Si mg/L"    "Si-MP"     
+[28] "SO4 mg/L"   "Sr-MP"      "TDN mg/L"   "Zn-MP"  
+```{r}
+Analyte <- "TDN"
+ForName <- paste(Analyte, "mg/L")
+ForLabs <- paste(Analyte, "kg/ha")
+
+sumplot <- concentrations_areas %>% 
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "deep C", "Watershed")) %>%
+  filter(name == ForName) %>%
+  mutate(dayofYear = yday(Date)) %>%
+  ggplot(aes(dayofYear, conc_kgha, color = HPU))+
   geom_point()+
+  theme_bw()+
+  ylab(ForLabs)+
   facet_grid(rows = "HPU")
 
-WSvalue <- NO3HPU_areas %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal")) %>%
-  group_by(SampleDate) %>%
-  summarize(kgha_NO3_WS = sum(NO3_kg)/TotalArea_ha) 
 
-medianval <- median(WSvalue$kgha_NO3_WS)
+sumtable <- concentrations_areas %>% 
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "deep C", "Watershed")) %>%
+  filter(name == ForName) %>%
+  group_by(HPU) %>%
+  summarize(median_kgha = median(conc_kgha, na.rm = TRUE)) %>%
+  tableGrob()
 
-WSvalue %>%
-  ggplot(aes(SampleDate, kgha_NO3_WS))+
-  geom_line()+
-  ggtitle(paste("median value:", medianval))
+plotNtable <- sumplot+sumtable 
 
+plotNtable
+
+concentrations_areas %>% filter(HPU == "Watershed")
 ```
 

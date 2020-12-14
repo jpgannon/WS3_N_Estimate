@@ -38,6 +38,9 @@ info <- read_csv("Well_info.csv") %>%
 info_legacy <- read_csv("legacy_well_info.csv") %>%
   rename(Screen_bottom_depth_cm = `ground - bottom screen cm`)
 
+info$HPU[info$Screened_horizon == "C"] <- "deep C"
+info_legacy$HPU[info_legacy$`Deep Well` == "y"] <- "deep C"
+
 info2 <- bind_rows(info, info_legacy) %>%
   select(Well, HPU, Screen_bottom_depth_cm)
 

@@ -26,5 +26,31 @@ chem_summary_NO3 <- chem %>%
 
 
 ```
+make read in and summaries work for all analytes
+```{r}
+chem <- read_csv("WS3-chem_200130.csv") %>%
+  mutate(Date = dmy(Date))
 
+chem$Type[chem$'deep C screen' == 'x'] <- "deep C"
 
+chem <- chem %>% 
+  select(-c('WS-#', Site, Time, Notes, 'deep C screen', pH)) %>%
+  select(-starts_with('X'))
+
+chemlong <- chem %>% pivot_longer(cols = 'Na-MP':'Alo mg/L', values_to = "Concentration")
+
+HPUkey <- read_csv("HPU LocationType.csv")
+
+#detection limit for NO3 is 0.04
+
+startdate <- mdy("01-01-2010") #ignore chem before this date
+
+chem_summary <- chemlong %>% 
+  group_by(name, Type, Date) %>%
+  filter(Date > startdate) %>%
+  summarize(median_concentration = median(Concentration), num_samples = length(Concentration))%>%
+  left_join(HPUkey, by = c("Type" = "LocationType"))
+
+write_csv(chem_summary, "daily values for all analytes by HPU.csv")
+
+```
