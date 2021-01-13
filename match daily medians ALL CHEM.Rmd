@@ -32,18 +32,19 @@ dailyHPUlevel %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "ripa
 ## match median water levels to NO3 data
 
 ```{r}
-NO3_and_WL_LJ <- chem_summary_NO3 %>%
-  inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
-  write_csv(NO3_and_WL_FJ, "NO3_and_WL_LeftJoin.csv")
-
-NO3_and_WL <- chem_summary_NO3 %>%
-  inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
-  write_csv(NO3_and_WL, "NO3_and_medianWLs.csv")
+# NO3_and_WL_LJ <- chem_summary_NO3 %>%
+#   inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+#   write_csv(NO3_and_WL_FJ, "NO3_and_WL_LeftJoin.csv")
+# 
+# NO3_and_WL <- chem_summary_NO3 %>%
+#   inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+#   write_csv(NO3_and_WL, "NO3_and_medianWLs.csv")
   
 Chem_and_WL <- chem_summary %>%
   inner_join(dailyHPUlevel, by = c("HPU", "Date" = "date"))
   write_csv(Chem_and_WL, "allchem_with_medianWLs.csv")
 ```
+
 ```{r}
 Chem_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian", "C horizon")) %>%
   filter(name == "NO3 mg/L") %>%
@@ -51,6 +52,8 @@ Chem_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "ripari
   geom_boxplot()+
   theme_classic()
 ```
+
+#old below
 ```{r}
 NO3_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian")) %>%
   ggplot(aes(SampleDate, NO3median_mgL * median_ht_above_C_cm, color = HPU))+
