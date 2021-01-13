@@ -8,6 +8,7 @@ library(tidyverse)
 library(lubridate)
 library(patchwork)
 library(gridExtra)
+
 ```
 ```{r}
 ChemWLs <- read_csv("allchem_with_medianWLs.csv")
@@ -15,12 +16,14 @@ HPUareas <- read_csv("HPUareas.csv")
 
 ChemWL_areas <- ChemWLs %>% left_join(HPUareas, by = "HPU")
 
-#filter out Deep C NO3 values from 11-07-2013
-ChemWL_areas <- ChemWL_areas %>% filter(!(HPU == "deep C" & Date == mdy("11-07-2013") & name == "NO3 mg/L"))
 
-Porosity <- 0.5
+por <- 0.5
+Cpor <- 0.4
 
-TotalArea_ha <- sum(HPUareas$Area_ha[HPUareas$HPU != "deep C"])
+ChemWL_areas <- ChemWL_areas %>% mutate(Porosity = por)
+ChemWL_areas$Porosity[ChemWL_areas$HPU == "C horizon"] <- Cpor
+
+TotalArea_ha <- sum(HPUareas$Area_ha[HPUareas$HPU != "C horizon"])
 
 ```
 
@@ -82,9 +85,10 @@ concentrations_areas_WS <- concentrations_areas %>%
 
 concentrations_areas <- concentrations_areas %>% bind_rows(concentrations_areas_WS)
 
+
 #find WS value based on median value for each HPU
 medians_by_HPUs <- concentrations_areas %>% 
-  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "deep C")) %>%
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
   group_by(name, HPU) %>%
   summarize(median_conc_kgha = median(conc_kgha, na.rm = TRUE), Area_ha = mean(Area_ha))
   
@@ -112,25 +116,33 @@ solum_table
 [10] "F mg/L"     "Fe mg/L"    "Fe-MP"      "K mg/L"     "K-MP"       "Mg mg/L"    "Mg-MP"      "Mn mg/L"    "Mn-MP"     
 [19] "Na mg/L"    "Na-MP"      "NH4 mg N/L" "NO3 mg/L"   "P-MP"       "Pb-MP"      "Rb-MP"      "Si mg/L"    "Si-MP"     
 [28] "SO4 mg/L"   "Sr-MP"      "TDN mg/L"   "Zn-MP"  
-```{r}
+
+TDN
+```{r, fig.height= 6}
 Analyte <- "TDN"
 ForName <- paste(Analyte, "mg/L")
 ForLabs <- paste(Analyte, "kg/ha")
 
-sumplot <- concentrations_areas %>% 
-  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "deep C", "Watershed")) %>%
+sumplot <- concentrations_areas %>% filter(conc_kgha < 10) %>%
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
   filter(name == ForName) %>%
-  mutate(dayofYear = yday(Date)) %>%
-  ggplot(aes(dayofYear, conc_kgha, color = HPU))+
+  mutate(dayofYear = yday(Date), monthday = mdy(paste(month(Date), day(Date), 2000))) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
+  ggplot(aes(monthday, conc_kgha, color = HPU))+
   geom_point()+
-  theme_bw()+
+  scale_x_date(date_labels = "%B")+
+  xlab("month")+
+  theme_classic()+
+  theme(legend.position = "none")+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
   ylab(ForLabs)+
   facet_grid(rows = "HPU")
 
 
 sumtable <- concentrations_areas %>% 
-  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "deep C", "Watershed")) %>%
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
   filter(name == ForName) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
   group_by(HPU) %>%
   summarize(median_kgha = median(conc_kgha, na.rm = TRUE)) %>%
   tableGrob()
@@ -140,5 +152,129 @@ plotNtable <- sumplot+sumtable
 plotNtable
 
 concentrations_areas %>% filter(HPU == "Watershed")
+```
+
+NO3 mg N/L
+```{r, fig.height= 6}
+Analyte <- "NO3"
+ForName <- paste(Analyte, "mg/L")
+ForLabs <- paste(Analyte, "kg N/ha")
+
+sumplot <- concentrations_areas %>% filter(conc_kgha < 10) %>%
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
+  filter(name == ForName) %>%
+  mutate(dayofYear = yday(Date), monthday = mdy(paste(month(Date), day(Date), 2000))) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
+  ggplot(aes(monthday, conc_kgha * 0.2260, color = HPU))+
+  geom_point()+
+  scale_x_date(date_labels = "%B")+
+  xlab("month")+
+  theme_classic()+
+  theme(legend.position = "none")+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  ylab(ForLabs)+
+  facet_grid(rows = "HPU")
+
+
+sumtable <- concentrations_areas %>% 
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
+  filter(name == ForName) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
+  group_by(HPU) %>%
+  summarize(median_kgha = median(conc_kgha, na.rm = TRUE)) %>%
+  tableGrob()
+
+plotNtable <- sumplot+sumtable 
+
+plotNtable
+
+concentrations_areas %>% filter(HPU == "Watershed")
+```
+NH3
+```{r, fig.height= 6}
+Analyte <- "NH4"
+ForName <- paste(Analyte, "mg N/L")
+ForLabs <- paste(Analyte, "kg N/ha")
+
+sumplot <- concentrations_areas %>% filter(conc_kgha < 10) %>%
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
+  filter(name == ForName) %>%
+  mutate(dayofYear = yday(Date), monthday = mdy(paste(month(Date), day(Date), 2000))) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
+  ggplot(aes(monthday, conc_kgha, color = HPU))+
+  geom_point()+
+  scale_x_date(date_labels = "%B")+
+  xlab("month")+
+  theme_classic()+
+  theme(legend.position = "none")+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  ylab(ForLabs)+
+  facet_grid(rows = "HPU")
+
+
+sumtable <- concentrations_areas %>% 
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
+  filter(name == ForName) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
+  group_by(HPU) %>%
+  summarize(median_kgha = median(conc_kgha, na.rm = TRUE)) %>%
+  tableGrob()
+
+plotNtable <- sumplot+sumtable 
+
+plotNtable
+
+concentrations_areas %>% filter(HPU == "Watershed")
+```
+
+DON
+```{r, fig.height= 6}
+
+
+conc_area_wide <- concentrations_areas %>% pivot_wider(names_from = name, values_from = conc_kgha)
+conc_area_wide <- conc_area_wide %>% mutate(DON = 'TDN mg/L' - 'NH4 mg N/L' - ('NO3 mg/L' * 0.2260))
+
+Analyte <- "NH4"
+ForName <- paste(Analyte, "mg N/L")
+ForLabs <- paste(Analyte, "kg N/ha")
+
+sumplot <- concentrations_areas %>% filter(conc_kgha < 10) %>%
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
+  filter(name == ForName) %>%
+  mutate(dayofYear = yday(Date), monthday = mdy(paste(month(Date), day(Date), 2000))) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
+  ggplot(aes(monthday, conc_kgha, color = HPU))+
+  geom_point()+
+  scale_x_date(date_labels = "%B")+
+  xlab("month")+
+  theme_classic()+
+  theme(legend.position = "none")+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  ylab(ForLabs)+
+  facet_grid(rows = "HPU")
+
+
+sumtable <- concentrations_areas %>% 
+  filter(HPU %in% c("E", "Bhs", "typical", "Bh", "bimodal", "C horizon")) %>%
+  filter(name == ForName) %>%
+  mutate(HPU = factor(HPU, levels = c("E","Bhs","typical", "bimodal", "Bh", "C horizon"))) %>%
+  group_by(HPU) %>%
+  summarize(median_kgha = median(conc_kgha, na.rm = TRUE)) %>%
+  tableGrob()
+
+plotNtable <- sumplot+sumtable 
+
+plotNtable
+
+concentrations_areas %>% filter(HPU == "Watershed")
+```
+
+```{r}
+HPUareas
+```
+```{r}
+concentrations_areas %>% filter(name %in% c("TDN mg/L", "NH4 mg N/L", "NO3 mg/L")) %>%
+  group_by(name) %>%
+  summarize(count = length(median_concentration), firstDate = min(Date), lastDate = max(Date))
 ```
 

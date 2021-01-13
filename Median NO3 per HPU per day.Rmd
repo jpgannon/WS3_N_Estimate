@@ -31,7 +31,7 @@ make read in and summaries work for all analytes
 chem <- read_csv("WS3-chem_200130.csv") %>%
   mutate(Date = dmy(Date))
 
-chem$Type[chem$'deep C screen' == 'x'] <- "deep C"
+chem$Type[chem$'deep C screen' == 'x'] <- "C horizon"
 
 chem <- chem %>% 
   select(-c('WS-#', Site, Time, Notes, 'deep C screen', pH)) %>%
