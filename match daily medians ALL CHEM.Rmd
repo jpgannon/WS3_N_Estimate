@@ -1,0 +1,67 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+## requires output from median NO3 and Make daily water levels RMDs
+
+## Make daily median water level PER HPU
+```{r}
+dailyHPUlevel <- dailyWLsHPUs %>%
+  group_by(HPU, date) %>%
+  drop_na() %>%
+  summarise(median_ht_above_C_cm = median(WLaboveC_cm), 
+            sdWLs = sd(WLaboveC_cm), 
+            wells_included = length(WLaboveC_cm))
+
+#set all depths in C horizon to 3 m
+dailyHPUlevel$median_ht_above_C_cm[dailyHPUlevel$HPU == "C horizon"] <- 300
+```
+### check w plot
+```{r}
+dailyHPUlevel %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian", "C horizon")) %>%
+  ggplot(aes(date, median_ht_above_C_cm, color = as.factor(wells_included))) +
+  geom_line()+
+  facet_grid(rows = "HPU")
+```
+## match median water levels to NO3 data
+
+```{r}
+NO3_and_WL_LJ <- chem_summary_NO3 %>%
+  inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+  write_csv(NO3_and_WL_FJ, "NO3_and_WL_LeftJoin.csv")
+
+NO3_and_WL <- chem_summary_NO3 %>%
+  inner_join(dailyHPUlevel, by = c("HPU","SampleDate" = "date"))
+  write_csv(NO3_and_WL, "NO3_and_medianWLs.csv")
+  
+Chem_and_WL <- chem_summary %>%
+  inner_join(dailyHPUlevel, by = c("HPU", "Date" = "date"))
+  write_csv(Chem_and_WL, "allchem_with_medianWLs.csv")
+```
+```{r}
+Chem_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian", "C horizon")) %>%
+  filter(name == "NO3 mg/L") %>%
+  ggplot(aes(HPU, median_concentration))+
+  geom_boxplot()+
+  theme_classic()
+```
+```{r}
+NO3_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian")) %>%
+  ggplot(aes(SampleDate, NO3median_mgL * median_ht_above_C_cm, color = HPU))+
+  geom_point()+
+  facet_grid(rows = "HPU")
+```
+```{r}
+NO3_and_WL %>% filter(HPU %in% c("E", "Bhs", "typical", "Bh","bimodal", "riparian")) %>%
+  mutate(dayofYear = yday(SampleDate)) %>%
+  ggplot(aes(dayofYear, NO3median_mgL * median_ht_above_C_cm, color = HPU))+
+  geom_point()+
+  facet_grid(rows = "HPU")
+```
+
