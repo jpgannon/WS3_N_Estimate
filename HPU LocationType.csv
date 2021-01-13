@@ -1,0 +1,17 @@
+﻿LocationType,HPU
+1,ephemeral
+2,intermittent
+3,perennial
+4,seep
+5,maybe seep
+6,above weir
+G0,bedrock histosol
+G1,E
+G2,Bhs
+G3,typical
+G4,bimodal
+G5,Bh
+G6,riparian
+G7,bedrock GW
+G8,inceptisol
+C horizon,C horizon
